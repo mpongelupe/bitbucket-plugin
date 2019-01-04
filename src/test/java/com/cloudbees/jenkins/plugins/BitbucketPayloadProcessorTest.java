@@ -30,35 +30,17 @@ public class BitbucketPayloadProcessorTest {
     @Test
     public void testProcessWebhookPayload() {
         // Set headers so that payload processor will parse as new Webhook payload
-        when(request.getHeader("user-agent")).thenReturn("Bitbucket-Webhooks/2.0");
-        when(request.getHeader("x-event-key")).thenReturn("repo:push");
+        testProcessWebhookPayloadIsCalled("repo:push");
+    }
 
-        String user = "test_user";
-        String url = "https://bitbucket.org/test_user/test_repo";
+    @Test
+    public void testProcessWebhookPayloadPullRequestCreated() {
+        testProcessWebhookPayloadIsCalled("pullrequest:created");
+    }
 
-        JSONObject payload = new JSONObject()
-            .element("actor", new JSONObject()
-                .element("username", user))
-            .element("repository", new JSONObject()
-                .element("links", new JSONObject()
-                    .element("html", new JSONObject()
-                        .element("href", url))));
-
-        JSONObject hgLoad = new JSONObject()
-            .element("scm", "hg")
-            .element("owner", new JSONObject()
-                .element("username", user))
-            .element("links", new JSONObject()
-                .element("html", new JSONObject()
-                    .element("href", url)));
-
-        payloadProcessor.processPayload(payload, request);
-
-        verify(probe).triggerMatchingJobs(user, url, "git", payload.toString());
-
-        payloadProcessor.processPayload(hgLoad, request);
-
-        verify(probe).triggerMatchingJobs(user, url, "hg", hgLoad.toString());
+    @Test
+    public void testProcessWebhookPayloadPullRequestUpdated() {
+        testProcessWebhookPayloadIsCalled("pullrequest:updated");
     }
 
     @Test
@@ -104,4 +86,35 @@ public class BitbucketPayloadProcessorTest {
         verify(probe).triggerMatchingJobs("old_user", "https://staging.bitbucket.org/old_user/old_repo", "git", payload.toString());
     }
 
+    private void testProcessWebhookPayloadIsCalled(String eventKey) {
+        when(request.getHeader("user-agent")).thenReturn("Bitbucket-Webhooks/2.0");
+        when(request.getHeader("x-event-key")).thenReturn(eventKey);
+
+        String user = "test_user";
+        String url = "https://bitbucket.org/test_user/test_repo";
+
+        JSONObject payload = new JSONObject()
+                .element("actor", new JSONObject()
+                        .element("username", user))
+                .element("repository", new JSONObject()
+                        .element("links", new JSONObject()
+                                .element("html", new JSONObject()
+                                        .element("href", url))));
+
+        JSONObject hgLoad = new JSONObject()
+                .element("scm", "hg")
+                .element("owner", new JSONObject()
+                        .element("username", user))
+                .element("links", new JSONObject()
+                        .element("html", new JSONObject()
+                                .element("href", url)));
+
+        payloadProcessor.processPayload(payload, request);
+
+        verify(probe).triggerMatchingJobs(user, url, "git", payload.toString());
+
+        payloadProcessor.processPayload(hgLoad, request);
+
+        verify(probe).triggerMatchingJobs(user, url, "hg", hgLoad.toString());
+    }
 }
