@@ -2,6 +2,10 @@ package com.cloudbees.jenkins.plugins;
 
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -13,6 +17,9 @@ public class BitbucketPayloadProcessor {
 
     private final BitbucketJobProbe probe;
 
+    private static final Set<String> SET_OF_SUPPORTED_EVENTS = Collections.unmodifiableSet(
+            new HashSet<String>(Arrays.asList("repo:push","pullrequest:created", "pullrequest:updated")));
+
     public BitbucketPayloadProcessor(BitbucketJobProbe probe) {
         this.probe = probe;
     }
@@ -23,12 +30,12 @@ public class BitbucketPayloadProcessor {
 
     public void processPayload(JSONObject payload, HttpServletRequest request) {
         if ("Bitbucket-Webhooks/2.0".equals(request.getHeader("user-agent"))) {
-            if ("repo:push".equals(request.getHeader("x-event-key"))) {
+            if (isEventKeyAllowed(request.getHeader("x-event-key"))) {
                 LOGGER.log(Level.INFO, "Processing new Webhooks payload");
                 processWebhookPayload(payload);
             }
         } else if (payload.has("actor") && payload.has("repository")) {
-            if ("repo:push".equals(request.getHeader("x-event-key"))) {
+            if (isEventKeyAllowed(request.getHeader("x-event-key"))) {
                 LOGGER.log(Level.INFO, "Processing new Webhooks payload");
                 processWebhookPayloadBitBucketServer(payload);
             }
@@ -36,6 +43,10 @@ public class BitbucketPayloadProcessor {
             LOGGER.log(Level.INFO, "Processing old POST service payload");
             processPostServicePayload(payload);
         }
+    }
+
+    private Boolean isEventKeyAllowed(String eventKey) {
+        return eventKey != null && SET_OF_SUPPORTED_EVENTS.contains(eventKey);
     }
 
     private void processWebhookPayload(JSONObject payload) {
